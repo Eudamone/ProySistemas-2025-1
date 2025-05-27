@@ -20,13 +20,14 @@ func main() {
 	text1 := canvas.NewText("Comment 1", color.White)
 	text2 := canvas.NewText("Comment 2", color.White)
 
+	// Contenedor Titulo
 	contTitle := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), title, layout.NewSpacer())
 	contCode := container.New(layout.NewHBoxLayout(), text1, layout.NewSpacer(), text2)
 	//contReport := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), title, layout.NewSpacer())
 
 	// Contenedor principal
 	contMain := container.New(layout.NewVBoxLayout(), contTitle, contCode)
-
+    //puto el que lea
 	window.SetContent(contMain)
 	window.ShowAndRun()
 }
