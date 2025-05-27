@@ -20,7 +20,6 @@ func main() {
 	text1 := canvas.NewText("Comment 1", color.White)
 	text2 := canvas.NewText("Comment 2", color.White)
 
-	//Contenedor del titulo
 	contTitle := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), title, layout.NewSpacer())
 	contCode := container.New(layout.NewHBoxLayout(), text1, layout.NewSpacer(), text2)
 	//contReport := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), title, layout.NewSpacer())
