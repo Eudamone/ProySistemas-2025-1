@@ -26,7 +26,7 @@ func main() {
 
 	// Contenedor principal
 	contMain := container.New(layout.NewVBoxLayout(), contTitle, contCode)
-
+    //puto el que lea
 	window.SetContent(contMain)
 	window.ShowAndRun()
 }
