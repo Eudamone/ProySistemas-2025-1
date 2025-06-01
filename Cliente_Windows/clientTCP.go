@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"net"
 
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
@@ -13,7 +15,7 @@ import (
 func main() {
 	proy := app.New()
 	window := proy.NewWindow("Cliente SO")
-	window.Resize(fyne.NewSize(400, 200))
+	window.Resize(fyne.NewSize(400,400))
 
 	// Pantalla de parametros
 	ipEntry := widget.NewEntry()
@@ -25,15 +27,34 @@ func main() {
 	regexPort := `^([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$`
 	portEntry.Validator = validation.NewRegexp(regexPort,"Puerto invalido")
 
-	connectBtt := widget.NewButton("Conectar",func() {
+	connectBtt := widget.NewButton("Conectar",nil)
+
+	connectBtt.OnTapped = func() {
 		//Validar si no hay errores en las entradas de ip y puerto
 		if (ipEntry.Validate() != nil) || (portEntry.Validate() != nil){
 			return
 		}
 
-		window.Resize(fyne.NewSize(800,600))
-		window.SetContent(MainInterface(window))
-	})
+		connectBtt.SetText("Espere....")
+		connectBtt.Disable()
+		
+		go func(){
+			socketC,err := net.Dial("tcp",ipEntry.Text+":"+portEntry.Text)
+			fyne.Do(func(){
+				if err!= nil{
+					dialog.ShowError(err,window)
+					connectBtt.SetText("Conectar")
+					connectBtt.Enable()
+					return
+				}
+				defer socketC.Close()
+
+				window.Resize(fyne.NewSize(800,600))
+				window.SetContent(MainInterface(window))
+			})
+			
+		}()	
+	}
 
 	connForm := container.NewVBox(
 		widget.NewLabel("Bienvenido"),
@@ -41,6 +62,7 @@ func main() {
 		portEntry,
 		connectBtt,
 	)
+	
 
 	window.SetContent(connForm)
 	window.ShowAndRun()
