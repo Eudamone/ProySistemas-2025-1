@@ -22,4 +22,5 @@ func main() {
 	}
 	fmt.Println("Cliente conectado [", socketS.RemoteAddr().String(), "]")
 	fmt.Println("¡Conexión exitosa con el cliente!")
+	socketS.Close()
 }
