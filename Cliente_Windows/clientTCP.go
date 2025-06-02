@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -22,6 +23,10 @@ func main() {
 	// Canales para la sincronización de la interfaz
 	commandCh := make(chan string)
 	reportCh := make(chan string)
+	// Socket para la conexión con el servidor
+	var socketC net.Conn
+	var err error
+	var writer *bufio.Writer
 
 	// Pantalla de parametros
 	// Entrada para valor de IP
@@ -39,9 +44,31 @@ func main() {
 	nEntry.SetPlaceHolder("Tiempo de actualización reportes")
 	regexN := `^([0-9]?[0-9][0-9]?)$`
 	nEntry.Validator = validation.NewRegexp(regexN, "Parametro n invalido")
+	// Entrada para usuario
+	userEntry := widget.NewEntry()
+	userEntry.SetPlaceHolder("Ingrese su usuario")
+	regexUser := `^[a-zA-Z0-9_]{3,20}$`
+	userEntry.Validator = validation.NewRegexp(regexUser, "Usuario invalido (3-20 caracteres, alfanuméricos o guiones bajos)")
+	// Entrada para contraseña
+	passEntry := widget.NewPasswordEntry()
+	passEntry.SetPlaceHolder("Ingrese su contraseña")
+	regexPass := `^[a-zA-Z0-9_!@#$%^&*()]{4,20}$`
+	passEntry.Validator = validation.NewRegexp(regexPass, "Contraseña invalida (4-20 caracteres, alfanuméricos o símbolos permitidos)")
 
 	// Botón para realizar la conexión
 	connectBtt := widget.NewButton("Conectar", nil)
+	validateBtt := widget.NewButton("Validar usuario", nil)
+
+	// Formulario de conexión
+	connForm := container.NewVBox(
+		widget.NewLabel("Bienvenido"),
+		ipEntry,
+		portEntry,
+		nEntry,
+		userEntry,
+		passEntry,
+		connectBtt,
+	)
 
 	//Elementos de reporte
 	cpuLabel := widget.NewLabel("CPU: -")
@@ -52,8 +79,52 @@ func main() {
 	// Logica de conexión al servidor
 	connectBtt.OnTapped = func() {
 		//Validar si no hay errores en las entradas de ip y puerto
-		if (ipEntry.Validate() != nil) || (portEntry.Validate() != nil) || (nEntry.Validate() != nil) {
+		if (ipEntry.Validate() != nil) || (portEntry.Validate() != nil) || (nEntry.Validate() != nil) || (userEntry.Validate() != nil) || (passEntry.Validate() != nil) {
+			dialog.ShowError(errors.New("por favor, corrija los errores en las entradas"), window)
 			return
+		} else if connectBtt.Text == "Validar usuario" {
+			// Si el botón es "Validar usuario", se valida el usuario y contraseña
+			if userEntry.Validate() != nil || passEntry.Validate() != nil {
+				dialog.ShowError(errors.New("por favor, corrija los errores en las entradas"), window)
+				return
+			}
+			connectBtt.Disable()
+			// Si las entradas son válidas, se procede a validar el usuario y contraseña
+			writer.WriteString(nEntry.Text + "," + userEntry.Text + "," + passEntry.Text + "\n")
+			writer.Flush()
+			response := <-commandCh
+			response = strings.TrimSpace(response)
+			if response == "" || response == "Usuario o contraseña incorrectos." || response == "Parametros de conexion no validos." {
+				dialog.ShowError(errors.New("usuario y/o contraseña invalidos"), window)
+				// Se habilitan las entradas para que el usuario pueda corregir
+				userEntry.SetText("")
+				passEntry.SetText("")
+				userEntry.Enable()
+				passEntry.Enable()
+				connectBtt.Enable()
+				return
+			} else {
+				fmt.Println("Respuesta del servidor -> ", response)
+				dialog.ShowInformation("Validación exitosa", "Usuario y contraseña validados correctamente.", window)
+				for _, w := range []fyne.Disableable{userEntry, passEntry} {
+					w.Disable()
+				}
+				// Si la conexión es exitosa, se procede a mostrar la interfaz principal
+				window.Resize(fyne.NewSize(800, 600))
+				window.SetContent(MainInterface(window, &socketC, cpuLabel, prcLabel, ramLabel, diskLabel, commandCh))
+
+				go updateReports([]*widget.Label{cpuLabel, prcLabel, ramLabel, diskLabel}, reportCh)
+
+				window.SetTitle("Cliente SO - " + ipEntry.Text + ":" + portEntry.Text)
+				window.SetOnClosed(func() {
+					if socketC != nil {
+						socketC.Close()
+					}
+				})
+				//Para evitar que avance en el codigo y se intente conectar al servidor
+				return
+			}
+
 		}
 
 		elements := []fyne.Disableable{
@@ -71,7 +142,7 @@ func main() {
 		connectBtt.Disable()
 
 		go func() {
-			socketC, err := net.Dial("tcp", ipEntry.Text+":"+portEntry.Text)
+			socketC, err = net.Dial("tcp", ipEntry.Text+":"+portEntry.Text)
 			fyne.Do(func() {
 				if err != nil {
 					dialog.ShowError(err, window)
@@ -82,18 +153,34 @@ func main() {
 					return
 				}
 
-				// Se envía el parámetro n al servidor
-				writer := bufio.NewWriter(socketC)
-				writer.WriteString(nEntry.Text + "\n")
+				// Se envían parametros de conexión al servidor
+				writer = bufio.NewWriter(socketC)
+
+				go interfaceSocket(&socketC, commandCh, reportCh)
+
+				writer.WriteString(nEntry.Text + "," + userEntry.Text + "," + passEntry.Text + "\n")
 				writer.Flush()
+
+				response := <-commandCh
+				response = strings.TrimSpace(response)
+				if response == "" || response == "Usuario o contraseña incorrectos." || response == "Parametros de conexion no validos." {
+					dialog.ShowError(errors.New("usuario y/o contraseña invalidos"), window)
+					// Se habilitan las entradas para que el usuario pueda corregir
+					userEntry.SetText("")
+					passEntry.SetText("")
+					userEntry.Enable()
+					passEntry.Enable()
+					connectBtt.SetText("Validar usuario")
+					connectBtt.Enable()
+					return
+				} else {
+					fmt.Println("Respuesta del servidor -> ", response)
+				}
 
 				// Si la conexión es exitosa, se procede a mostrar la interfaz principal
 				window.Resize(fyne.NewSize(800, 600))
 				window.SetContent(MainInterface(window, &socketC, cpuLabel, prcLabel, ramLabel, diskLabel, commandCh))
 
-				go interfaceSocket(&socketC, commandCh, reportCh)
-				response := <-commandCh
-				fmt.Println("Respuesta del servidor:", response)
 				go updateReports([]*widget.Label{cpuLabel, prcLabel, ramLabel, diskLabel}, reportCh)
 
 				window.SetTitle("Cliente SO - " + ipEntry.Text + ":" + portEntry.Text)
@@ -107,13 +194,13 @@ func main() {
 		}()
 	}
 
-	connForm := container.NewVBox(
-		widget.NewLabel("Bienvenido"),
-		ipEntry,
-		portEntry,
-		nEntry,
-		connectBtt,
-	)
+	validateBtt.OnTapped = func() {
+		if (userEntry.Validate() != nil) || (passEntry.Validate() != nil) {
+			dialog.ShowError(errors.New("por favor, corrija los errores en las entradas"), window)
+			return
+		}
+
+	}
 
 	window.SetContent(connForm)
 	window.ShowAndRun()
