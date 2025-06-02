@@ -175,6 +175,7 @@ func main() {
 					return
 				} else {
 					fmt.Println("Respuesta del servidor -> ", response)
+					dialog.ShowInformation("Validación exitosa", "Usuario y contraseña validados correctamente.", window)
 				}
 
 				// Si la conexión es exitosa, se procede a mostrar la interfaz principal
