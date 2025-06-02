@@ -259,8 +259,9 @@ func MainInterface(w fyne.Window, socketC *net.Conn, cpuLabel, prcLabel, ramLabe
 
 func interfaceSocket(socketC *net.Conn, commandCh, reportCh chan string) {
 	reader := bufio.NewReader(*socketC)
+	var bufferOutput string
 	for {
-		line, err := reader.ReadString('\n')
+		linesOutput, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("Error al leer del socket:", err)
 			close(commandCh)
@@ -268,18 +269,21 @@ func interfaceSocket(socketC *net.Conn, commandCh, reportCh chan string) {
 			return
 		}
 
-		lines := strings.Split(line, "\n")
-		for _, msg := range lines {
-			msg = strings.TrimSpace(msg)
-			if msg == "" {
-				continue
-			}
+		if strings.HasPrefix(linesOutput, "REPORT:") {
+			// Si es un reporte se envia directamente al canal de reportes
+			reporte := strings.TrimSpace(linesOutput[len("REPORT:"):])
+			reportCh <- reporte
+			continue
+		}
 
-			if strings.HasPrefix(msg, "REPORT:") {
-				reportCh <- msg[len("REPORT:"):]
-			} else {
-				commandCh <- msg
-			}
+		bufferOutput += linesOutput
+
+		if strings.Contains(bufferOutput, "[FIN]") {
+			msg := strings.ReplaceAll(bufferOutput, "[FIN]", "")
+			msg = strings.TrimSpace(msg)
+			bufferOutput = "" // Reiniciar el buffer para la siguiente lectura
+
+			commandCh <- msg
 		}
 
 	}
