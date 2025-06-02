@@ -86,7 +86,7 @@ func main() {
 	// Manejo del cliente en goroutines
 	// Se crean dos goroutines, una para recibir mensajes y otra para enviar reportes
 	go recCommand(reader, msgCh, exitCh)
-	go sendReports(n, msgCh,exitCh)
+	go sendReports(n, msgCh, exitCh)
 
 	// Mantener el servidor activo hasta que se cierre
 	<-exitCh
@@ -107,16 +107,15 @@ func recCommand(recBuffer *bufio.Reader, msgCh chan string, exitCh chan struct{}
 		command = strings.TrimRight(command, "\n")
 		Scommand := strings.Split(command, ":")
 		shell := exec.Command(Scommand[0], Scommand[1:]...)
-		resCommand, _ := shell.Output()
+		resCommand, _ := shell.CombinedOutput()
 
-		rtaComando := string(resCommand) + "\n"
+		rtaComando := string(resCommand) + "[FIN]\n"
 
 		msgCh <- rtaComando
-		fmt.Println(rtaComando)
 	}
 }
 
-func sendReports(n int, msgCh chan string,exitCh chan struct{}) {
+func sendReports(n int, msgCh chan string, exitCh chan struct{}) {
 	x := 0
 	ticker := time.NewTicker(time.Duration(n) * time.Second)
 	defer ticker.Stop()
@@ -148,7 +147,6 @@ func ValidateUser(user, passw string) bool {
 	//fmt.Println("Directorio actual: ",dir)
 	password := sha256.Sum256([]byte(passw))
 	hexapassUser := fmt.Sprintf("%x", password)
-	fmt.Println("Contraseña encriptada:", hexapassUser)
 	if err != nil {
 		fmt.Println("Error al abrir el archivo:", err)
 		return false
@@ -156,14 +154,11 @@ func ValidateUser(user, passw string) bool {
 	contArchivo := string(archivo)
 	contArchivo = strings.TrimRight(contArchivo, "\n")
 	users := strings.Split(contArchivo, "\n")
-	for i, lineUser := range users {
+	for _, lineUser := range users {
 		credentials := strings.Split(lineUser, ":")
 		if user == strings.TrimSpace(credentials[0]) && hexapassUser == strings.TrimSpace(credentials[1]) {
-			fmt.Println("Entro en el if de validacion")
 			return true
 		}
-		fmt.Printf("Usuario [%d]: %s\n", i, credentials[0])
-		fmt.Printf("Contraseña [%d]: %s\n", i, credentials[1])
 	}
 	return false
 }
