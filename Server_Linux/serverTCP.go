@@ -131,12 +131,6 @@ func sendReports(n int, msgCh chan string, exitCh chan struct{}) {
 			fmt.Println("Enviando reporte al cliente:", report)
 			x++
 		}
-		time.Sleep(time.Duration(n) * time.Second)
-		//Procesador - Procesos - Memoria - Disco
-		report := fmt.Sprintf("REPORT:CPU:%d,PRC:%d,RAM:%d,DD:%d\n", x+5, x+20, x+3, x+10)
-		msgCh <- report
-		fmt.Println("Enviando reporte al cliente:", report)
-		x++
 	}
 }
 
