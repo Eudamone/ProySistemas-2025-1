@@ -311,6 +311,5 @@ func updateReports(elementos []*widget.Label, reportCh chan string) {
 				elementos[i].SetText(val)
 			}
 		})
-
 	}
 }
