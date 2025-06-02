@@ -1,0 +1,4 @@
+IP
+Puerto
+Cantidad de intentos fallidos
+Usuarios Identificados
