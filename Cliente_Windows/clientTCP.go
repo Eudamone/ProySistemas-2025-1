@@ -94,7 +94,7 @@ func main() {
 				go interfaceSocket(&socketC, commandCh, reportCh)
 				response := <-commandCh
 				fmt.Println("Respuesta del servidor:", response)
-				go updateReports(&socketC, []*widget.Label{cpuLabel, prcLabel, ramLabel, diskLabel}, reportCh)
+				go updateReports([]*widget.Label{cpuLabel, prcLabel, ramLabel, diskLabel}, reportCh)
 
 				window.SetTitle("Cliente SO - " + ipEntry.Text + ":" + portEntry.Text)
 				window.SetOnClosed(func() {
@@ -210,7 +210,7 @@ func sendComand(socketC *net.Conn, command string, output *widget.Entry, command
 	output.SetText(output.Text + "\n> " + command + "\n" + response)
 }
 
-func updateReports(socketC *net.Conn, elementos []*widget.Label, reportCh chan string) {
+func updateReports(elementos []*widget.Label, reportCh chan string) {
 	for report := range reportCh {
 		//report = strings.TrimSpace(report)
 		valores := strings.Split(report, ",")
