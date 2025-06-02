@@ -2,8 +2,11 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"fmt"
 	"net"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +25,8 @@ func main() {
 	msgCh := make(chan string)
 
 	fmt.Println("Esperando conexiones....!")
+
+
 	socketS, err := socketInicial.Accept()
 	if err != nil {
 		fmt.Println("Error al aceptar conexión:", err)
@@ -47,7 +52,7 @@ func main() {
 
 	// Manejo del cliente en goroutines
 	// Se crean dos goroutines, una para recibir mensajes y otra para enviar reportes
-	go recMessage(reader, msgCh)
+	go recCommand(reader, msgCh)
 	go sendReports(n, msgCh)
 
 	// Mantener el servidor activo hasta que se cierre
@@ -57,12 +62,17 @@ func main() {
 	socketS.Close()
 }
 
-func recMessage(recBuffer *bufio.Reader, msgCh chan string) {
+func recCommand(recBuffer *bufio.Reader, msgCh chan string) {
 	for {
-		recComando, _ := recBuffer.ReadString('\n')
-		fmt.Println("Mensaje recibido del cliente:", recComando)
+		command, _ := recBuffer.ReadString('\n')
+		fmt.Println("Mensaje recibido del cliente:", command)
 
-		rtaComando := "Comando recibido: " + recComando + "\n"
+		command = strings.TrimRight(command, "\n")
+		Scommand := strings.Split(command, ":")
+		shell := exec.Command(Scommand[0], Scommand[1:]...)
+		resCommand,_ := shell.Output()
+
+		rtaComando := string(resCommand) + "\n"
 
 		msgCh <- rtaComando
 		fmt.Println(rtaComando)
@@ -79,4 +89,24 @@ func sendReports(n int, msgCh chan string) {
 		fmt.Println("Enviando reporte al cliente:", report)
 		x++
 	}
+}
+
+func ValidateUser(user,passw string) bool {
+	archivo, err := os.ReadFile("users.txt")
+	password := sha256.Sum256([]byte(passw))
+	hexapassUser := fmt.Sprintf("%x", password)
+	if err != nil {
+		fmt.Println("Error al abrir el archivo:", err)
+		return false
+	}
+	contArchivo := string(archivo)
+	contArchivo = strings.TrimRight(contArchivo, "\n")
+	users := strings.Split(contArchivo, "\n")
+	for _, lineUser := range users {
+		credentials := strings.Split(lineUser, ":")
+		if user == credentials[0] && hexapassUser == credentials[1] {
+			return true
+		}
+	}
+	return false
 }
