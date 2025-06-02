@@ -308,9 +308,7 @@ func updateReports(elementos []*widget.Label, reportCh chan string) {
 		valores := strings.Split(report, ",")
 		fyne.Do(func() {
 			for i, val := range valores {
-				indexV := strings.Index(val, ":")
-				indexE := strings.Index(elementos[i].Text, ":")
-				elementos[i].SetText(elementos[i].Text[:indexE+1] + val[indexV+1:])
+				elementos[i].SetText(val)
 			}
 		})
 
