@@ -65,20 +65,20 @@ func main() {
 		itemsResponse := strings.Split(response, ",")
 		if len(itemsResponse) < 3 || itemsResponse[0] == "" || itemsResponse[1] == "" || itemsResponse[2] == "" {
 			fmt.Printf("Parametro n:%s,usuario:%s,pass:%s", itemsResponse[0], itemsResponse[1], itemsResponse[2])
-			msgCh <- "Parametros de conexion no validos.\n"
+			msgCh <- "Parametros de conexion no validos.[FIN]\n"
 			continue
 		}
 		nS, user, passw := itemsResponse[0], itemsResponse[1], itemsResponse[2]
 		fmt.Println("Validando usuario y contraseña...")
 		if ValidateUser(user, passw) {
 			fmt.Printf("Usuario %s validado correctamente.\n", user)
-			msgCh <- "Autenticación exitosa.\n"
+			msgCh <- "Autenticación exitosa.[FIN]\n"
 			n, _ = strconv.Atoi(nS)
 			fmt.Println("Valor de n recibido del cliente:", n)
 			break
 		} else {
 			fmt.Printf("Usuario %s no validado correctamente.\n", user)
-			msgCh <- "Usuario o contraseña incorrectos.\n"
+			msgCh <- "Usuario o contraseña incorrectos.[FIN]\n"
 			// No cerrar el socket aquí, esperar a que el cliente reintente
 		}
 	}
