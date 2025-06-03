@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -14,6 +15,9 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
+
+// closeOnce es una variable para asegurar que el socket se cierra una sola vez
+var closeOnce sync.Once
 
 func main() {
 	proy := app.New()
@@ -26,7 +30,14 @@ func main() {
 	// Socket para la conexión con el servidor
 	var socketC net.Conn
 	var err error
-	var writer *bufio.Writer
+	var writer *bufio.Writer	
+
+	// Cerrar el socket al cerrar la ventana
+	window.SetOnClosed(func() {
+		if socketC != nil {
+			socketC.Close()
+		}
+	})
 
 	// Pantalla de parametros
 	// Entrada para valor de IP
@@ -70,6 +81,12 @@ func main() {
 		connectBtt,
 	)
 
+	// Dialog de confirmación para cerrar la aplicación
+	exitDialog := dialog.NewCustom("Notificación:", "Aceptar", widget.NewLabel("Número máximo de intentos alcanzado.\nCerrando aplicación."), window)
+	exitDialog.SetOnClosed(func() {
+		window.Close()
+	})
+
 	//Elementos de reporte
 	cpuLabel := widget.NewLabel("CPU: -")
 	prcLabel := widget.NewLabel("Procesos: -")
@@ -93,8 +110,11 @@ func main() {
 			writer.WriteString(nEntry.Text + "," + userEntry.Text + "," + passEntry.Text + "\n")
 			writer.Flush()
 			response := <-commandCh
+			fmt.Println("Respuesta del servidor:", response)
 			response = strings.TrimSpace(response)
-			if response == "" || response == "Usuario o contraseña incorrectos." || response == "Parametros de conexion no validos." {
+			if response == "Número máximo de intentos alcanzado. Cerrando conexión."{
+				exitDialog.Show()
+			}else if response == "" || response == "Usuario o contraseña incorrectos." || response == "Parametros de conexion no validos." {
 				dialog.ShowError(errors.New("usuario y/o contraseña invalidos"), window)
 				// Se habilitan las entradas para que el usuario pueda corregir
 				userEntry.SetText("")
@@ -116,11 +136,6 @@ func main() {
 				go updateReports([]*widget.Label{cpuLabel, prcLabel, ramLabel, diskLabel}, reportCh)
 
 				window.SetTitle("Cliente SO - " + ipEntry.Text + ":" + portEntry.Text)
-				window.SetOnClosed(func() {
-					if socketC != nil {
-						socketC.Close()
-					}
-				})
 				//Para evitar que avance en el codigo y se intente conectar al servidor
 				return
 			}
@@ -163,7 +178,9 @@ func main() {
 
 				response := <-commandCh
 				response = strings.TrimSpace(response)
-				if response == "" || response == "Usuario o contraseña incorrectos." || response == "Parametros de conexion no validos." {
+				if response == "Número máximo de intentos alcanzado. Cerrando conexión."{
+					exitDialog.Show()
+				}else if response == "" || response == "Usuario o contraseña incorrectos." || response == "Parametros de conexion no validos." {
 					dialog.ShowError(errors.New("usuario y/o contraseña invalidos"), window)
 					// Se habilitan las entradas para que el usuario pueda corregir
 					userEntry.SetText("")
@@ -185,11 +202,6 @@ func main() {
 				go updateReports([]*widget.Label{cpuLabel, prcLabel, ramLabel, diskLabel}, reportCh)
 
 				window.SetTitle("Cliente SO - " + ipEntry.Text + ":" + portEntry.Text)
-				window.SetOnClosed(func() {
-					if socketC != nil {
-						socketC.Close()
-					}
-				})
 			})
 
 		}()
@@ -265,8 +277,10 @@ func interfaceSocket(socketC *net.Conn, commandCh, reportCh chan string) {
 		linesOutput, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("Error al leer del socket:", err)
-			close(commandCh)
-			close(reportCh)
+			closeOnce.Do(func(){
+				close(commandCh)
+				close(reportCh)
+			})
 			return
 		}
 

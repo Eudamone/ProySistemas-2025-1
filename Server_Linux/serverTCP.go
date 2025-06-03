@@ -13,14 +13,14 @@ import (
 )
 
 func main() {
-	fmt.Println("Creando socket abriendo puerto 1705")
+	parameters := initParams()
+	fmt.Printf("Creando servidor TCP en %s:%s\n", parameters[0],parameters[1])
 	// IP a 0.0.0.0 para aceptar conexiones de cualquier IP
-	socketInicial, err := net.Listen("tcp", "192.168.3.192:1705")
+	socketInicial, err := net.Listen("tcp", parameters[0]+":"+parameters[1])
 	if err != nil {
 		fmt.Println("Error al abrir el puerto:", err)
 		return
 	}
-	fmt.Println("Socket creado:")
 	// Canal para escritura de mensajes
 	msgCh := make(chan string)
 	// Canal de cierre para el socket
@@ -56,7 +56,8 @@ func main() {
 	}()
 
 	var n int
-	for {
+	limit,_ := strconv.Atoi(parameters[2])
+	for i:=0;i<limit;i++ {
 		response, _ := reader.ReadString('\n')
 		if response == "" {
 			continue
@@ -70,13 +71,22 @@ func main() {
 		}
 		nS, user, passw := itemsResponse[0], itemsResponse[1], itemsResponse[2]
 		fmt.Println("Validando usuario y contraseña...")
-		if ValidateUser(user, passw) {
+		if ValidateUser(parameters[3],user, passw) {
 			fmt.Printf("Usuario %s validado correctamente.\n", user)
 			msgCh <- "Autenticación exitosa.[FIN]\n"
 			n, _ = strconv.Atoi(nS)
 			fmt.Println("Valor de n recibido del cliente:", n)
 			break
-		} else {
+		}else if i == limit-1 {
+			fmt.Println("Número máximo de intentos alcanzado. Cerrando conexión.")
+			msgCh <- "Número máximo de intentos alcanzado. Cerrando conexión.[FIN]\n"
+			// Dar tiempo para que el cliente reciba el mensaje
+			time.Sleep(3 * time.Second)
+			// Cerrar el canal de mensajes y el socket
+			close(exitCh)
+			socketS.Close()
+			return
+		}else {
 			fmt.Printf("Usuario %s no validado correctamente.\n", user)
 			msgCh <- "Usuario o contraseña incorrectos.[FIN]\n"
 			// No cerrar el socket aquí, esperar a que el cliente reintente
@@ -162,8 +172,8 @@ func sendReports(n int, msgCh chan string, exitCh chan struct{}) {
 	}
 }
 
-func ValidateUser(user, passw string) bool {
-	archivo, err := os.ReadFile("Server_Linux/users.txt")
+func ValidateUser(rute,user, passw string) bool {
+	archivo, err := os.ReadFile("Server_Linux/"+rute)
 	fmt.Printf("user:%s, passw:%s\n", user, passw)
 	//dir,_ := os.Getwd()
 	//fmt.Println("Directorio actual: ",dir)
@@ -183,4 +193,26 @@ func ValidateUser(user, passw string) bool {
 		}
 	}
 	return false
+}
+
+func initParams() []string {
+	file, err := os.ReadFile("Server_Linux/conf.txt")
+	if err != nil {
+		fmt.Println("Error al leer el archivo de configuración:", err)
+		return []string{}
+	}
+	lines := strings.Split(string(file), "\n")
+	var params []string
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, ":")
+		if len(parts) != 2 {
+			continue
+		}
+		value := strings.TrimSpace(parts[1])
+		params = append(params, value)
+	}
+	return params
 }
