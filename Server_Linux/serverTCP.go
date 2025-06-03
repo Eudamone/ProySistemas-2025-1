@@ -15,7 +15,7 @@ import (
 func main() {
 	fmt.Println("Creando socket abriendo puerto 1705")
 	// IP a 0.0.0.0 para aceptar conexiones de cualquier IP
-	socketInicial, err := net.Listen("tcp", "0.0.0.0:1705")
+	socketInicial, err := net.Listen("tcp", "192.168.3.192:1705")
 	if err != nil {
 		fmt.Println("Error al abrir el puerto:", err)
 		return
