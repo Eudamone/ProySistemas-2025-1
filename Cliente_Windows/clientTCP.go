@@ -311,5 +311,14 @@ func updateReports(elementos []*widget.Label, reportCh chan string) {
 				elementos[i].SetText(val)
 			}
 		})
+		/*n := len(elementos)
+        if len(valores) < n {
+            n = len(valores)
+        }
+        fyne.Do(func() {
+            for i := 0; i < n; i++ {
+                elementos[i].SetText(valores[i])
+            }
+        })*/
 	}
 }

@@ -116,7 +116,6 @@ func recCommand(recBuffer *bufio.Reader, msgCh chan string, exitCh chan struct{}
 }
 
 func sendReports(n int, msgCh chan string, exitCh chan struct{}) {
-	x := 0
 	ticker := time.NewTicker(time.Duration(n) * time.Second)
 	defer ticker.Stop()
 
@@ -126,10 +125,39 @@ func sendReports(n int, msgCh chan string, exitCh chan struct{}) {
 			fmt.Println("Deteniendo envío de reportes...")
 			return
 		case <-ticker.C:
-			report := fmt.Sprintf("REPORT:CPU:%d,PRC:%d,RAM:%d,DD:%d\n", x+5, x+20, x+3, x+10)
+			// CPU: porcentaje de uso promedio en 1 segundo
+			cpuOut, _ := exec.Command("sh", "-c", `LC_NUMERIC=C top -bn1 | grep "Cpu(s)" | awk -F',' '{for(i=1;i<=NF;i++){if($i~"id"){split($i,a," "); print 100-a[1]}}}'`).Output()
+			cpu := strings.TrimSpace(string(cpuOut))
+			if cpu == "" {
+				cpu = "-"
+			}
+			cpu = strings.ReplaceAll(cpu, ",", ".")
+
+			// Procesos: cantidad de procesos en ejecución
+			prcOut, _ := exec.Command("sh", "-c", `ps -e --no-headers | wc -l`).Output()
+			prc := strings.TrimSpace(string(prcOut))
+			if prc == "" {
+				prc = "-"
+			}
+
+			// RAM: porcentaje de uso de memoria
+			ramOut, _ := exec.Command("sh", "-c", `LC_NUMERIC=C free | grep Mem | awk '{printf("%.2f", $3/$2 * 100)}'`).Output()
+			ram := strings.TrimSpace(string(ramOut))
+			if ram == "" {
+				ram = "-"
+			}
+
+			// Disco: porcentaje de uso del disco raíz
+			diskOut, _ := exec.Command("sh", "-c", `df / | tail -1 | awk '{print $5}' | tr -d '%'`).Output()
+			disk := strings.TrimSpace(string(diskOut))
+			if disk == "" {
+				disk = "-"
+			}
+
+			// Formato esperado por el cliente: CPU,PRC,RAM,DD
+			report := fmt.Sprintf("REPORT:CPU:%s,PRC:%s,RAM:%s,DD:%s\n", cpu, prc, ram, disk)
 			msgCh <- report
 			fmt.Println("Enviando reporte al cliente:", report)
-			x++
 		}
 	}
 }
