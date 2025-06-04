@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"os"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -23,6 +24,13 @@ func main() {
 	proy := app.New()
 	window := proy.NewWindow("Cliente SO")
 	window.Resize(fyne.NewSize(400, 400))
+
+	imgBytes,errImg := os.ReadFile("logo.png")
+	if errImg == nil {
+		logo := fyne.NewStaticResource("logo.png",imgBytes)
+		window.SetIcon(logo)
+	}
+	
 
 	// Canales para la sincronización de la interfaz
 	commandCh := make(chan string)
