@@ -30,7 +30,7 @@ func main() {
 	// Socket para la conexión con el servidor
 	var socketC net.Conn
 	var err error
-	var writer *bufio.Writer	
+	var writer *bufio.Writer
 
 	// Cerrar el socket al cerrar la ventana
 	window.SetOnClosed(func() {
@@ -112,9 +112,9 @@ func main() {
 			response := <-commandCh
 			fmt.Println("Respuesta del servidor:", response)
 			response = strings.TrimSpace(response)
-			if response == "Número máximo de intentos alcanzado. Cerrando conexión."{
+			if response == "Número máximo de intentos alcanzado. Cerrando conexión." {
 				exitDialog.Show()
-			}else if response == "" || response == "Usuario o contraseña incorrectos." || response == "Parametros de conexion no validos." {
+			} else if response == "" || response == "Usuario o contraseña incorrectos." || response == "Parametros de conexion no validos." {
 				dialog.ShowError(errors.New("usuario y/o contraseña invalidos"), window)
 				// Se habilitan las entradas para que el usuario pueda corregir
 				userEntry.SetText("")
@@ -178,9 +178,9 @@ func main() {
 
 				response := <-commandCh
 				response = strings.TrimSpace(response)
-				if response == "Número máximo de intentos alcanzado. Cerrando conexión."{
+				if response == "Número máximo de intentos alcanzado. Cerrando conexión." {
 					exitDialog.Show()
-				}else if response == "" || response == "Usuario o contraseña incorrectos." || response == "Parametros de conexion no validos." {
+				} else if response == "" || response == "Usuario o contraseña incorrectos." || response == "Parametros de conexion no validos." {
 					dialog.ShowError(errors.New("usuario y/o contraseña invalidos"), window)
 					// Se habilitan las entradas para que el usuario pueda corregir
 					userEntry.SetText("")
@@ -220,16 +220,14 @@ func main() {
 }
 
 func MainInterface(w fyne.Window, socketC *net.Conn, cpuLabel, prcLabel, ramLabel, diskLabel *widget.Label, commandCh chan string) fyne.CanvasObject {
-	// Entrada e historial de comandos
-	output := widget.NewMultiLineEntry()
-	output.SetPlaceHolder("Salida del servidor....")
-	output.Disable()                    //Solo lectura
-	output.Wrapping = fyne.TextWrapWord //Propiedad para bloquear el contenido en sentido horizontal
-	output.TextStyle.Bold = true
-	output.TextStyle.Monospace = true
+	// Richtext para mostrar el reporte de comandos sistema
+	richOutput := widget.NewRichText()
+	richOutput.Wrapping = fyne.TextWrapWord //Propiedad para bloquear el contenido en sentido horizontal
+	richOutput.Segments = []widget.RichTextSegment{}
+	// Contenedor para el reporte de comandos de scroll
+	scrollOutput := container.NewScroll(richOutput)
 
 	input := widget.NewEntry()
-
 	input.SetPlaceHolder("Ingrese un comando")
 	input.OnSubmitted = func(text string) {
 		if text == "" {
@@ -242,28 +240,20 @@ func MainInterface(w fyne.Window, socketC *net.Conn, cpuLabel, prcLabel, ramLabe
 			w.Close()
 			return
 		} else if text == "cls" {
-			output.SetText("")
+			richOutput.Segments = []widget.RichTextSegment{}
+			richOutput.Refresh()
 			input.SetText("")
 			return
 		}
 
 		//Enviar el comando al servidor
-		sendComand(socketC, text, output, commandCh)
-
-		//Forzar el scroll a bajar
-		focussItem := w.Canvas().Focused()
-		if focussItem == nil || focussItem != output {
-			output.CursorRow = len(output.Text) - 1
-		}
-
+		sendComand(socketC, text, richOutput,scrollOutput,commandCh)
 		input.SetText("")
 	}
 
-	terminalBox := container.NewBorder(nil, input, nil, nil, output)
-
+	terminalBox := container.NewBorder(nil, input, nil, nil, scrollOutput)
 	// Layout Vertical
 	reportBox := container.NewVBox(widget.NewLabel("Reporte del sistema:"), cpuLabel, prcLabel, ramLabel, diskLabel)
-
 	//Dividir pantalla
 	content := container.NewHSplit(terminalBox, reportBox)
 	content.Offset = 0.7
@@ -277,7 +267,7 @@ func interfaceSocket(socketC *net.Conn, commandCh, reportCh chan string) {
 		linesOutput, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("Error al leer del socket:", err)
-			closeOnce.Do(func(){
+			closeOnce.Do(func() {
 				close(commandCh)
 				close(reportCh)
 			})
@@ -304,7 +294,7 @@ func interfaceSocket(socketC *net.Conn, commandCh, reportCh chan string) {
 	}
 }
 
-func sendComand(socketC *net.Conn, command string, output *widget.Entry, commandCh chan string) {
+func sendComand(socketC *net.Conn, command string,richOutput *widget.RichText,scroll *container.Scroll,commandCh chan string) {
 	//Enviar comando al servidor
 	writer := bufio.NewWriter(*socketC)
 	writer.WriteString(command + "\n")
@@ -312,27 +302,23 @@ func sendComand(socketC *net.Conn, command string, output *widget.Entry, command
 	//Esperar la respuesta del canal
 	response := <-commandCh
 
-	fmt.Println("Respuesta del servidor:", response)
-	output.SetText(output.Text + "\n> " + command + "\n" + response)
+	// Agregar el comando y la respuesta al richtext
+	richOutput.Segments = append(richOutput.Segments,
+		&widget.TextSegment{Text: "> " + command + "\n",Style: widget.RichTextStyle{ColorName: "white",TextStyle: fyne.TextStyle{Bold: true}}},
+		&widget.TextSegment{Text: response + "\n", Style: widget.RichTextStyle{TextStyle: fyne.TextStyle{Monospace: true}}},
+	)
+	richOutput.Refresh()
+	scroll.ScrollToBottom()
 }
 
 func updateReports(elementos []*widget.Label, reportCh chan string) {
 	for report := range reportCh {
 		//report = strings.TrimSpace(report)
-		valores := strings.Split(report, ",")
+		valores := strings.Split(report, ";")
 		fyne.Do(func() {
 			for i, val := range valores {
 				elementos[i].SetText(val)
 			}
 		})
-		/*n := len(elementos)
-        if len(valores) < n {
-            n = len(valores)
-        }
-        fyne.Do(func() {
-            for i := 0; i < n; i++ {
-                elementos[i].SetText(valores[i])
-            }
-        })*/
 	}
 }
