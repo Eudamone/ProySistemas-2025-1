@@ -194,7 +194,7 @@ func sendReports(n int, msgCh chan string, exitCh chan struct{}) {
 			}
 
 			// Formato esperado por el cliente: CPU,PRC,RAM,DD
-			report := fmt.Sprintf("REPORT:CPU:%s;PRC:%s;RAM:%s;DD:%s\n", cpu, prc, ram, disk)
+			report := fmt.Sprintf("REPORT:CPU:%s%%;PRC:%s;RAM:%s%%;DD:%s%%\n", cpu, prc, ram, disk)
 			msgCh <- report
 			fmt.Println("Enviando reporte al cliente:", report)
 		}
