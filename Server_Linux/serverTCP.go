@@ -149,8 +149,6 @@ func recCommand(recBuffer *bufio.Reader, shellIn io.WriteCloser, msgCh chan stri
 		if err != nil {
 			msgCh <- "Error al enviar comando a shell.\n[FIN]\n"
 		}
-
-		msgCh <- "[FIN]\n"
 	}
 }
 
