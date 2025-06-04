@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -14,7 +15,7 @@ import (
 
 func main() {
 	parameters := initParams()
-	fmt.Printf("Creando servidor TCP en %s:%s\n", parameters[0],parameters[1])
+	fmt.Printf("Creando servidor TCP en %s:%s\n", parameters[0], parameters[1])
 	// IP a 0.0.0.0 para aceptar conexiones de cualquier IP
 	socketInicial, err := net.Listen("tcp", parameters[0]+":"+parameters[1])
 	if err != nil {
@@ -56,8 +57,8 @@ func main() {
 	}()
 
 	var n int
-	limit,_ := strconv.Atoi(parameters[2])
-	for i:=0;i<limit;i++ {
+	limit, _ := strconv.Atoi(parameters[2])
+	for i := 0; i < limit; i++ {
 		response, _ := reader.ReadString('\n')
 		if response == "" {
 			continue
@@ -71,13 +72,13 @@ func main() {
 		}
 		nS, user, passw := itemsResponse[0], itemsResponse[1], itemsResponse[2]
 		fmt.Println("Validando usuario y contraseña...")
-		if ValidateUser(parameters[3],user, passw) {
+		if ValidateUser(parameters[3], user, passw) {
 			fmt.Printf("Usuario %s validado correctamente.\n", user)
 			msgCh <- "Autenticación exitosa.[FIN]\n"
 			n, _ = strconv.Atoi(nS)
 			fmt.Println("Valor de n recibido del cliente:", n)
 			break
-		}else if i == limit-1 {
+		} else if i == limit-1 {
 			fmt.Println("Número máximo de intentos alcanzado. Cerrando conexión.")
 			msgCh <- "Número máximo de intentos alcanzado. Cerrando conexión.[FIN]\n"
 			// Dar tiempo para que el cliente reciba el mensaje
@@ -86,16 +87,43 @@ func main() {
 			close(exitCh)
 			socketS.Close()
 			return
-		}else {
+		} else {
 			fmt.Printf("Usuario %s no validado correctamente.\n", user)
 			msgCh <- "Usuario o contraseña incorrectos.[FIN]\n"
 			// No cerrar el socket aquí, esperar a que el cliente reintente
 		}
 	}
 
+	shell := exec.Command("bash")
+	shellIn, _ := shell.StdinPipe()
+	shellOut, _ := shell.StdoutPipe()
+	shellErr, _ := shell.StderrPipe()
+	shell.Start()
+
+	// Lectores persistentes para la salida estándar y de error del shell
+	go func() {
+		scanner := bufio.NewScanner(shellOut)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line != "" {
+				msgCh <- line + "\n"
+			}
+		}
+	}()
+
+	go func() {
+		scanner := bufio.NewScanner(shellErr)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line != "" {
+				msgCh <- line + "\n"
+			}
+		}
+	}()
+
 	// Manejo del cliente en goroutines
 	// Se crean dos goroutines, una para recibir mensajes y otra para enviar reportes
-	go recCommand(reader, msgCh, exitCh)
+	go recCommand(reader, shellIn, msgCh, exitCh)
 	go sendReports(n, msgCh, exitCh)
 
 	// Mantener el servidor activo hasta que se cierre
@@ -104,7 +132,7 @@ func main() {
 	socketS.Close()
 }
 
-func recCommand(recBuffer *bufio.Reader, msgCh chan string, exitCh chan struct{}) {
+func recCommand(recBuffer *bufio.Reader, shellIn io.WriteCloser, msgCh chan string, exitCh chan struct{}) {
 	for {
 		command, err := recBuffer.ReadString('\n')
 		if err != nil {
@@ -112,16 +140,17 @@ func recCommand(recBuffer *bufio.Reader, msgCh chan string, exitCh chan struct{}
 			close(exitCh)
 			return
 		}
-		fmt.Println("Mensaje recibido del cliente:", command)
+		command = strings.TrimSpace(command)
+		if command == "" {
+			continue
+		}
+		fmt.Println("Comando recibido del cliente:", command)
+		_, err = shellIn.Write([]byte(command + "\necho \"[FIN]\"\n"))
+		if err != nil {
+			msgCh <- "Error al enviar comando a shell.\n[FIN]\n"
+		}
 
-		command = strings.TrimRight(command, "\n")
-		Scommand := strings.Split(command, ":")
-		shell := exec.Command(Scommand[0], Scommand[1:]...)
-		resCommand, _ := shell.CombinedOutput()
-
-		rtaComando := string(resCommand) + "[FIN]\n"
-
-		msgCh <- rtaComando
+		msgCh <- "[FIN]\n"
 	}
 }
 
@@ -165,15 +194,15 @@ func sendReports(n int, msgCh chan string, exitCh chan struct{}) {
 			}
 
 			// Formato esperado por el cliente: CPU,PRC,RAM,DD
-			report := fmt.Sprintf("REPORT:CPU:%s,PRC:%s,RAM:%s,DD:%s\n", cpu, prc, ram, disk)
+			report := fmt.Sprintf("REPORT:CPU:%s;PRC:%s;RAM:%s;DD:%s\n", cpu, prc, ram, disk)
 			msgCh <- report
 			fmt.Println("Enviando reporte al cliente:", report)
 		}
 	}
 }
 
-func ValidateUser(rute,user, passw string) bool {
-	archivo, err := os.ReadFile("Server_Linux/"+rute)
+func ValidateUser(rute, user, passw string) bool {
+	archivo, err := os.ReadFile("Server_Linux/" + rute)
 	fmt.Printf("user:%s, passw:%s\n", user, passw)
 	//dir,_ := os.Getwd()
 	//fmt.Println("Directorio actual: ",dir)
