@@ -89,9 +89,17 @@ func main() {
 
 	//Elementos de reporte
 	cpuLabel := widget.NewLabel("CPU: -")
+	cpuLabel.TextStyle.Bold = true
+	cpuLabel.SizeName = fyne.ThemeSizeName("subHeadingText")
 	prcLabel := widget.NewLabel("Procesos: -")
+	prcLabel.TextStyle.Bold = true
+	prcLabel.SizeName = fyne.ThemeSizeName("subHeadingText")
 	ramLabel := widget.NewLabel("RAM: -")
+	ramLabel.TextStyle.Bold = true
+	ramLabel.SizeName = fyne.ThemeSizeName("subHeadingText")
 	diskLabel := widget.NewLabel("Disco: -")
+	diskLabel.TextStyle.Bold = true
+	diskLabel.SizeName = fyne.ThemeSizeName("subHeadingText")
 
 	// Logica de conexión al servidor
 	connectBtt.OnTapped = func() {
@@ -247,13 +255,17 @@ func MainInterface(w fyne.Window, socketC *net.Conn, cpuLabel, prcLabel, ramLabe
 		}
 
 		//Enviar el comando al servidor
-		sendComand(socketC, text, richOutput,scrollOutput,commandCh)
+		sendComand(socketC, text, richOutput, scrollOutput, commandCh)
 		input.SetText("")
 	}
 
 	terminalBox := container.NewBorder(nil, input, nil, nil, scrollOutput)
+	titleReport := widget.NewLabel("Reporte del sistema")
+	titleReport.TextStyle.Bold = true
+	titleReport.Alignment = fyne.TextAlignCenter
+	titleReport.SizeName = fyne.ThemeSizeName("headingText")
 	// Layout Vertical
-	reportBox := container.NewVBox(widget.NewLabel("Reporte del sistema:"), cpuLabel, prcLabel, ramLabel, diskLabel)
+	reportBox := container.NewVBox(titleReport, cpuLabel, prcLabel, ramLabel, diskLabel)
 	//Dividir pantalla
 	content := container.NewHSplit(terminalBox, reportBox)
 	content.Offset = 0.7
@@ -294,7 +306,7 @@ func interfaceSocket(socketC *net.Conn, commandCh, reportCh chan string) {
 	}
 }
 
-func sendComand(socketC *net.Conn, command string,richOutput *widget.RichText,scroll *container.Scroll,commandCh chan string) {
+func sendComand(socketC *net.Conn, command string, richOutput *widget.RichText, scroll *container.Scroll, commandCh chan string) {
 	//Enviar comando al servidor
 	writer := bufio.NewWriter(*socketC)
 	writer.WriteString(command + "\n")
@@ -304,8 +316,8 @@ func sendComand(socketC *net.Conn, command string,richOutput *widget.RichText,sc
 
 	// Agregar el comando y la respuesta al richtext
 	richOutput.Segments = append(richOutput.Segments,
-		&widget.TextSegment{Text: "> " + command + "\n",Style: widget.RichTextStyle{ColorName: "white",TextStyle: fyne.TextStyle{Bold: true}}},
-		&widget.TextSegment{Text: response + "\n", Style: widget.RichTextStyle{TextStyle: fyne.TextStyle{Monospace: true}}},
+		&widget.TextSegment{Text: "> " + command, Style: widget.RichTextStyle{ColorName: "success",TextStyle: fyne.TextStyle{Bold: true}}},
+		&widget.TextSegment{Text: response , Style: widget.RichTextStyle{TextStyle: fyne.TextStyle{Monospace: true}}},
 	)
 	richOutput.Refresh()
 	scroll.ScrollToBottom()
