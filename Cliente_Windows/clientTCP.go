@@ -76,7 +76,6 @@ func main() {
 
 	// Botón para realizar la conexión
 	connectBtt := widget.NewButton("Conectar", nil)
-	validateBtt := widget.NewButton("Validar usuario", nil)
 
 	// Formulario de conexión
 	connForm := container.NewVBox(
@@ -223,13 +222,7 @@ func main() {
 		}()
 	}
 
-	validateBtt.OnTapped = func() {
-		if (userEntry.Validate() != nil) || (passEntry.Validate() != nil) {
-			dialog.ShowError(errors.New("por favor, corrija los errores en las entradas"), window)
-			return
-		}
 
-	}
 
 	window.SetContent(connForm)
 	window.ShowAndRun()
