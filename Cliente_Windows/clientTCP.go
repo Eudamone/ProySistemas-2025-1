@@ -240,7 +240,7 @@ func MainInterface(w fyne.Window, socketC *net.Conn, cpuLabel, prcLabel, ramLabe
 	input.OnSubmitted = func(text string) {
 		if text == "" {
 			return
-		} else if text == "bye" {
+		} else if text == "bye" || text == "exit" {
 			// Cerrar la aplicación
 			if socketC != nil {
 				(*socketC).Close()
